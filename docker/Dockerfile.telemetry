@@ -1,0 +1,10 @@
+# docker/Dockerfile.telemetry
+# Technical Explanation: Telemetry container definition. Inherits from the base image.
+
+FROM adaptive-privacy-base:latest
+
+# Expose telemetry port
+EXPOSE 8002
+
+# Run telemetry service
+CMD ["python", "apps/telemetry/main.py"]

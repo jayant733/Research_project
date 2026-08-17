@@ -1,0 +1,10 @@
+# docker/Dockerfile.scheduler
+# Technical Explanation: Scheduler container definition. Inherits from the base image.
+
+FROM adaptive-privacy-base:latest
+
+# Expose scheduler port
+EXPOSE 8003
+
+# Run scheduler service
+CMD ["python", "apps/scheduler/main.py"]

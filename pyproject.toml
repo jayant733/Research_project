@@ -1,0 +1,66 @@
+# pyproject.toml
+# Technical Explanation: Declares PEP 518 build-system specifications and formatting controls.
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptive-privacy-orchestrator"
+version = "0.1.0"
+description = "Resource-Aware Tiered Clustering for Heterogeneous Privacy-Preserving Federated Learning"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+    "flwr>=1.5.0",
+    "numpy>=1.21.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+]
+
+[tool.setuptools]
+packages = ["packages", "apps"]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "pytest>=7.0.0",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+extend-exclude = 'scripts/|paper/'
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+extend-exclude = ["scripts", "paper"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort (import sorting)
+    "C90", # mccabe complexity
+]
+ignore = []
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+pretty = true
+exclude = ["scripts", "paper"]
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "packages.training.providers.pytorch.*"
+ignore_errors = true

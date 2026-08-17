@@ -1,0 +1,182 @@
+# docker-compose.yml
+# Technical Explanation: Production-grade multi-container orchestrator.
+# Manages networking, named persistent volumes, startup dependencies, and Docker Profiles.
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    container_name: ratc-server
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SERVER_PORT=8000
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["development", "benchmark", "production"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  scheduler-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scheduler
+    container_name: ratc-scheduler
+    ports:
+      - "${SCHEDULER_PORT:-8003}:8003"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SERVER_HOST=server
+      - SCHEDULER_PORT=8003
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["development", "benchmark", "production"]
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    # Port mappings removed to allow horizontal scaling (up to 3, 10, 50 nodes) without host-port conflicts.
+    # Containers communicate internally using service DNS names.
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - SERVER_HOST=server
+      - CLIENT_PORT=8001
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["development", "benchmark", "production"]
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  telemetry-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.telemetry
+    container_name: ratc-telemetry
+    ports:
+      - "${TELEMETRY_PORT:-8002}:8002"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TELEMETRY_PORT=8002
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["development", "benchmark", "production"]
+    depends_on:
+      client:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ratc-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - prometheus_data:/prometheus
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["benchmark", "production"]
+    depends_on:
+      server:
+        condition: service_healthy
+      client:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ratc-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["production"]
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ratc-network:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

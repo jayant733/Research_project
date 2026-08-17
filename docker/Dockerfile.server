@@ -1,0 +1,10 @@
+# docker/Dockerfile.server
+# Technical Explanation: Server execution container. Extends the base image to keep images DRY.
+
+FROM adaptive-privacy-base:latest
+
+# Expose server health port
+EXPOSE 8000
+
+# Command to run the server application
+CMD ["python", "apps/server/main.py"]

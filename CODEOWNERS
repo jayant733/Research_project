@@ -1,0 +1,17 @@
+# CODEOWNERS
+# Automatically assigns PR reviewers based on file paths.
+
+# Set default owners for the entire repository
+*       @Student-C @Student-B @Student-A
+
+# Telemetry package owned by Student A
+/packages/telemetry/   @Student-A
+
+# Privacy & Training logic owned by Student B
+/packages/privacy/     @Student-B
+/apps/client/training/ @Student-B
+
+# Scheduler & Flower wrappers owned by Student C
+/packages/scheduler/   @Student-C
+/apps/server/          @Student-C
+/apps/client/flower/   @Student-C

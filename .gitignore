@@ -1,0 +1,53 @@
+# .gitignore
+# Technical Explanation: Prevents commit of environment state, compiler cache, and transient run telemetry logs.
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Pyenv / Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE files
+.vscode/
+.idea/
+
+# Local configuration overrides and secrets
+.env
+*.env
+
+# Logging and Telemetry cache outputs
+*.log
+experiments/logs/
+data/
+
+# OS files
+.DS_Store
+Thumbs.db

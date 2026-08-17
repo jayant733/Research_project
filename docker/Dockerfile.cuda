@@ -1,0 +1,35 @@
+# CUDA Dockerfile pinning exactly to 2.1.2-cuda11.8-cudnn8-runtime
+FROM pytorch/pytorch:2.1.2-cuda11.8-cudnn8-runtime
+
+WORKDIR /app
+
+# Ensure we have the necessary packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy pyproject.toml and requirements
+COPY pyproject.toml ./
+
+# Install specific pinned versions matching the environment
+RUN pip install --no-cache-dir \
+    torch==2.1.2 \
+    torchvision==0.16.2 \
+    numpy==1.26.4 \
+    flwr==1.7.0
+
+# Copy the rest of the application
+COPY . .
+
+# Install the package in editable mode
+RUN pip install -e .
+
+# Expose ports if necessary (e.g. for Flower or Telemetry)
+EXPOSE 8000 8001 8002 8003
+
+# Command for CPU Execution (Fallback)
+# CMD ["python", "-m", "apps.client"]
+
+# Command for GPU Execution (NVIDIA Container Toolkit required)
+# docker run --gpus all -it <image_name> python -m apps.client
+CMD ["python", "-m", "pytest", "tests/integration/test_training_engine.py"]

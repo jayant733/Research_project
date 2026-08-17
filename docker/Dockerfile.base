@@ -1,0 +1,29 @@
+# docker/Dockerfile.base
+# Technical Explanation: Base image that installs common dependencies, build systems, and dev tools.
+# Using python:3.10-slim to minimize container footprint while preserving system requirements.
+
+FROM python:3.10-slim
+
+# Set system variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory inside the container
+WORKDIR /workspace
+
+# Copy build config files
+COPY pyproject.toml README.md ./
+
+# Setup skeleton directories so setuptools editable setup installs successfully
+RUN mkdir -p apps/client apps/server apps/dashboard packages/telemetry packages/scheduler packages/privacy packages/common
+
+# Perform pip upgrades and install editable package containing dev tools
+RUN pip install --upgrade pip setuptools && \
+    pip install -e .[dev]

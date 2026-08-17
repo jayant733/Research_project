@@ -1,0 +1,10 @@
+# docker/Dockerfile.client
+# Technical Explanation: Client execution container. Extends the base image to keep images DRY.
+
+FROM adaptive-privacy-base:latest
+
+# Expose client health port
+EXPOSE 8001
+
+# Command to run the client application
+CMD ["python", "apps/client/main.py"]

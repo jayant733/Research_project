@@ -1,0 +1,31 @@
+# docker-compose.override.yml
+# Technical Explanation: Developer overrides. Mounts host source paths dynamically into container filesystems for live coding.
+# Connects virtual pip-cache named volumes to prevent repeated network installations on rebuilds.
+
+services:
+  server:
+    volumes:
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - pip_cache:/root/.cache/pip
+
+  scheduler-service:
+    volumes:
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - pip_cache:/root/.cache/pip
+
+  client:
+    volumes:
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - pip_cache:/root/.cache/pip
+
+  telemetry-service:
+    volumes:
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - pip_cache:/root/.cache/pip
+
+volumes:
+  pip_cache:
