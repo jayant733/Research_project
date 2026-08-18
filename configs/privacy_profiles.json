@@ -1,0 +1,22 @@
+{
+  "profiles": [
+    {
+      "tier_name": "TIER_1_FHE",
+      "security_level": "fhe",
+      "noise_multiplier": 0.0,
+      "fhe_poly_modulus_degree": 8192
+    },
+    {
+      "tier_name": "TIER_2_SECAGG",
+      "security_level": "sec_agg",
+      "noise_multiplier": 0.0,
+      "fhe_poly_modulus_degree": 0
+    },
+    {
+      "tier_name": "TIER_3_DP_PLAIN",
+      "security_level": "plain",
+      "noise_multiplier": 1.0,
+      "fhe_poly_modulus_degree": 0
+    }
+  ]
+}

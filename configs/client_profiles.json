@@ -1,0 +1,22 @@
+{
+  "profiles": [
+    {
+      "profile_name": "iot_device",
+      "cpu_capacity": 0.2,
+      "memory_capacity_mb": 512,
+      "network_speed_kbps": 1024
+    },
+    {
+      "profile_name": "mobile",
+      "cpu_capacity": 0.5,
+      "memory_capacity_mb": 2048,
+      "network_speed_kbps": 10240
+    },
+    {
+      "profile_name": "workstation",
+      "cpu_capacity": 1.0,
+      "memory_capacity_mb": 16384,
+      "network_speed_kbps": 102400
+    }
+  ]
+}

@@ -48,3 +48,5 @@ class TrainingSession:
         self.tracker.end_experiment()
 
         return result
+
+TrainingService = TrainingSession

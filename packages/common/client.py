@@ -14,8 +14,9 @@ from packages.common.model_interface import IModel
 class GenericClient(IGenericClient):
     """Core client engine delegating weights modification to injected models."""
 
-    def __init__(self, model: IModel) -> None:
+    def __init__(self, model: IModel, data: Any = None) -> None:
         self.model = model
+        self.data = data
         events.on_client_init.fire(model=model)
 
     def get_parameters(self, context: RoundContext) -> List[Any]:
@@ -33,13 +34,17 @@ class GenericClient(IGenericClient):
         self.model.set_weights(parameters)
 
         # 2. Trigger model local training loop
-        self.model.train()
+        if self.data is not None:
+            self.model.train(data=self.data)
+        else:
+            self.model.train()
 
         updated_weights = self.model.get_weights()
         events.on_fit_end.fire(updated_weights=updated_weights, context=context)
 
         # Returns updated weights, mock sample count (10), and metrics
-        return updated_weights, 10, {}
+        num_samples = len(self.data.dataset) if self.data and hasattr(self.data, "dataset") else 10
+        return updated_weights, num_samples, {}
 
     def evaluate(
         self, parameters: List[Any], context: RoundContext
@@ -49,10 +54,15 @@ class GenericClient(IGenericClient):
 
         # Update weights and compute evaluation
         self.model.set_weights(parameters)
-        accuracy = self.model.evaluate()
+        
+        if self.data is not None:
+            accuracy = self.model.evaluate(data=self.data)
+        else:
+            accuracy = self.model.evaluate()
 
         # Convert accuracy to mock validation loss
         loss = 1.0 - accuracy
 
         events.on_evaluate_end.fire(loss=loss, accuracy=accuracy, context=context)
-        return loss, 10, {"accuracy": accuracy}
+        num_samples = len(self.data.dataset) if self.data and hasattr(self.data, "dataset") else 10
+        return loss, num_samples, {"accuracy": accuracy}

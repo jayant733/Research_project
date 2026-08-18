@@ -41,5 +41,5 @@ class GenericStrategy(IFederationStrategy):
         weighted_loss = (
             sum(loss * sample_count for loss, sample_count in results) / total_samples
         )
-        # Mock accuracy average mapping
-        return weighted_loss, 0.95
+        # Return weighted loss, and 0.0 for accuracy since metrics aren't currently propagated
+        return weighted_loss, 0.0

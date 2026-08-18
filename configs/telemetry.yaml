@@ -1,0 +1,11 @@
+polling_interval_ms: 1000
+
+cgroup_paths:
+  cpu_shares: "/sys/fs/cgroup/cpu/cpu.shares"
+  memory_limit: "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+
+interfaces:
+  - "eth0"
+  - "wlan0"
+
+battery_node: "/sys/class/power_supply/BAT0/capacity"

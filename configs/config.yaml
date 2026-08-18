@@ -1,0 +1,8 @@
+active_profile: "development"
+system_mode: "simulation" # Can be simulation, real_time, hybrid
+data_root: "data/"
+
+ssl:
+  enabled: false
+  cert_path: ""
+  key_path: ""

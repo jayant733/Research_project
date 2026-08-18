@@ -1,0 +1,17 @@
+policy_type: "topsis" # topsis, rl, heuristic
+
+topsis:
+  w_cpu: 0.2
+  w_memory: 0.2
+  w_bandwidth: 0.2
+  w_battery: 0.2
+  w_sensitivity: 0.2
+
+rl_agent:
+  gamma: 0.99
+  learning_rate: 0.001
+  hidden_layers: [64, 32]
+
+thresholds:
+  tier_1_min_score: 0.7 # Tier 1 (FHE)
+  tier_2_min_score: 0.4 # Tier 2 (SecAgg)

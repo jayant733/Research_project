@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RATC Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <div class="header-title">
+                <h1>RATC Control Center</h1>
+                <span class="live-indicator"><span class="dot"></span> LIVE</span>
+            </div>
+            <div class="header-controls">
+                <div class="round-status">Round: <span id="current-round">0</span> / <span id="total-rounds">50</span></div>
+                <button id="btn-simulate" class="btn-primary">Trigger Round</button>
+                <button id="btn-register" class="btn-secondary">Add Client</button>
+            </div>
+        </header>
+
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <h3>Global Accuracy</h3>
+                <div class="kpi-value highlight-success" id="kpi-accuracy">0.00%</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Active Clients</h3>
+                <div class="kpi-value highlight-info" id="kpi-clients">0</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Privacy Budget (ε)</h3>
+                <div class="kpi-value highlight-warning" id="kpi-epsilon">0.00</div>
+            </div>
+            <div class="kpi-card">
+                <h3>Round Latency</h3>
+                <div class="kpi-value highlight-danger" id="kpi-latency">0.0s</div>
+            </div>
+        </section>
+
+        <section class="charts-section">
+            <div class="chart-card">
+                <h3>Model Convergence (Accuracy & Loss)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="convergenceChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Privacy Tier Distribution</h3>
+                <div class="chart-wrapper">
+                    <canvas id="tierChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="bottom-grid">
+            <div class="card event-log-card">
+                <h3>Federation Event Log</h3>
+                <div class="event-log" id="event-log">
+                    <div class="log-entry system">System initialized. Waiting for rounds...</div>
+                </div>
+            </div>
+            <div class="card client-telemetry-card">
+                <h3>Client Resource Telemetry</h3>
+                <div class="telemetry-grid" id="telemetry-grid">
+                    <!-- Dynamic client bars added here -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/telemetry.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

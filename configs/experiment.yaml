@@ -1,0 +1,10 @@
+dataset: "synthetic_healthcare" # or cifar10
+rounds: 5
+
+optimizer:
+  name: "sgd"
+  lr: 0.01
+
+differential_privacy:
+  epsilon: 1.0
+  delta: 1e-5

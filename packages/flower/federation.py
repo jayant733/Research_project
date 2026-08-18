@@ -47,3 +47,5 @@ class FlowerFederation(IFederation):
         fl.client.start_numpy_client(
             server_address=server_address, client=flower_client
         )
+
+FederatedOrchestrator = FlowerFederation
