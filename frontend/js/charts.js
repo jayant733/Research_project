@@ -1,79 +1,122 @@
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.font.family = 'Inter';
+Chart.defaults.color = "#aeb6a7";
+Chart.defaults.font.family = "IBM Plex Sans";
+Chart.defaults.font.size = 11;
+Chart.defaults.borderColor = "#30392d";
 
-let convergenceChart, tierChart;
+let convergenceChart;
+let tierChart;
 
 function initCharts() {
-    const ctxConv = document.getElementById('convergenceChart').getContext('2d');
-    convergenceChart = new Chart(ctxConv, {
-        type: 'line',
+    const convergence = document.getElementById("convergenceChart").getContext("2d");
+    convergenceChart = new Chart(convergence, {
+        type: "line",
         data: {
             labels: [],
             datasets: [
                 {
-                    label: 'Accuracy',
+                    label: "Accuracy %",
                     data: [],
-                    borderColor: '#00ff88',
-                    backgroundColor: 'rgba(0, 255, 136, 0.1)',
-                    yAxisID: 'y',
-                    tension: 0.3,
+                    borderColor: "#8fbf73",
+                    backgroundColor: "rgba(150, 198, 125, 0.10)",
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    tension: 0.25,
                     fill: true
                 },
                 {
-                    label: 'Loss',
+                    label: "Loss",
                     data: [],
-                    borderColor: '#ef4444',
-                    yAxisID: 'y1',
-                    tension: 0.3
+                    borderColor: "#e79750",
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    tension: 0.25,
+                    yAxisID: "y1"
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: {
+                    align: "end",
+                    labels: { usePointStyle: true, pointStyle: "circle", boxWidth: 8 }
+                }
+            },
             scales: {
-                y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Accuracy'} },
-                y1: { type: 'linear', display: true, position: 'right', title: {display: true, text: 'Loss'}, grid: {drawOnChartArea: false} }
+                x: { grid: { display: false } },
+                y: {
+                    min: 0,
+                    max: 100,
+                    ticks: { callback: (value) => `${value}%` },
+                    title: { display: true, text: "Accuracy" }
+                },
+                y1: {
+                    position: "right",
+                    min: 0,
+                    suggestedMax: 1,
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: "Loss" }
+                }
             }
         }
     });
 
-    const ctxTier = document.getElementById('tierChart').getContext('2d');
-    tierChart = new Chart(ctxTier, {
-        type: 'doughnut',
+    const tiers = document.getElementById("tierChart").getContext("2d");
+    tierChart = new Chart(tiers, {
+        type: "doughnut",
         data: {
-            labels: ['Tier 1 (FHE)', 'Tier 2 (SecAgg)', 'Tier 3 (DP)'],
+            labels: ["CKKS", "SecAgg", "Local DP", "Plain", "Excluded"],
             datasets: [{
-                data: [0, 0, 0],
-                backgroundColor: ['#6c63ff', '#00d4ff', '#ff6b6b'],
+                data: [0, 0, 0, 0, 0],
+                backgroundColor: ["#e79750", "#51b8a8", "#d9b765", "#929bab", "#e07861"],
                 borderWidth: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: "72%",
             plugins: {
-                legend: { position: 'bottom' }
-            },
-            cutout: '70%'
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => `${context.label}: ${context.raw} clients`
+                    }
+                }
+            }
         }
     });
 }
 
+function resetCharts() {
+    convergenceChart.data.labels = [];
+    convergenceChart.data.datasets.forEach((dataset) => { dataset.data = []; });
+    convergenceChart.update();
+    tierChart.data.datasets[0].data = [0, 0, 0, 0, 0];
+    tierChart.update();
+}
+
 function updateConvergenceChart(round, accuracy, loss) {
-    convergenceChart.data.labels.push(`R${round}`);
-    convergenceChart.data.datasets[0].data.push(accuracy * 100);
-    convergenceChart.data.datasets[1].data.push(loss);
+    const label = `R${round}`;
+    const labels = convergenceChart.data.labels;
+    if (labels[labels.length - 1] === label) return;
+    labels.push(label);
+    convergenceChart.data.datasets[0].data.push(Number(accuracy) * 100);
+    convergenceChart.data.datasets[1].data.push(Number(loss));
     convergenceChart.update();
 }
 
 function updateTierChart(clients) {
-    let t1 = 0, t2 = 0, t3 = 0;
-    Object.values(clients).forEach(c => {
-        if (c.tier === 'TIER_1_FHE') t1++;
-        else if (c.tier === 'TIER_2_SECAGG') t2++;
-        else if (c.tier === 'TIER_3_DP_PLAIN') t3++;
+    const counts = { TIER_1_FHE: 0, TIER_2_SECAGG: 0, TIER_3_DP_PLAIN: 0, PLAIN: 0, EXCLUDED: 0 };
+    Object.values(clients || {}).forEach((client) => {
+        if (Object.prototype.hasOwnProperty.call(counts, client.tier)) counts[client.tier] += 1;
     });
-    tierChart.data.datasets[0].data = [t1, t2, t3];
+    tierChart.data.datasets[0].data = [
+        counts.TIER_1_FHE, counts.TIER_2_SECAGG, counts.TIER_3_DP_PLAIN, counts.PLAIN, counts.EXCLUDED
+    ];
     tierChart.update();
 }

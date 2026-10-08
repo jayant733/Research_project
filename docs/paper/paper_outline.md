@@ -1,5 +1,7 @@
 # IEEE Paper Outline
 
+Implementation status: the repository now runs a local Flower demonstrator with TOPSIS tier assignment, CKKS pool aggregation, demonstrator pairwise masking, and accounted local DP. Do not cite numeric speedups from this outline unless they were produced by `scripts/run_experiment.py`. Secure aggregation is not the production Bonawitz protocol. See `docs/design/threat_model.md`.
+
 This document establishes the structural outline for the academic paper presenting the Resource-Aware Tiered Clustering (RATC) framework, formatted in accordance with IEEE Transactions style guidelines.
 
 ---

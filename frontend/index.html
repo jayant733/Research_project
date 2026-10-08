@@ -4,77 +4,167 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RATC Control Center</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="dashboard-header">
-            <div class="header-title">
-                <h1>RATC Control Center</h1>
-                <span class="live-indicator"><span class="dot"></span> LIVE</span>
+    <div class="shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                </div>
+                <div>
+                    <h1>RATC Control Center</h1>
+                    <p class="lede">Resource-aware privacy orchestration</p>
+                </div>
             </div>
-            <div class="header-controls">
-                <div class="round-status">Round: <span id="current-round">0</span> / <span id="total-rounds">50</span></div>
-                <button id="btn-simulate" class="btn-primary">Trigger Round</button>
-                <button id="btn-register" class="btn-secondary">Add Client</button>
+            <div class="topbar-meta">
+                <span class="pill" id="connection-pill" role="status">Offline</span>
+                <span class="pill quiet" id="mode-pill">RATC</span>
+                <span class="round-chip">Round <strong id="current-round">0</strong> / <strong id="total-rounds">4</strong></span>
             </div>
         </header>
 
-        <section class="kpi-grid">
-            <div class="kpi-card">
-                <h3>Global Accuracy</h3>
-                <div class="kpi-value highlight-success" id="kpi-accuracy">0.00%</div>
+        <section class="run-console" aria-labelledby="run-console-title">
+            <div class="run-copy">
+                <h2 id="run-console-title">Federation run</h2>
+                <p id="status-message" aria-live="polite">Connecting to the live Flower session.</p>
             </div>
-            <div class="kpi-card">
-                <h3>Active Clients</h3>
-                <div class="kpi-value highlight-info" id="kpi-clients">0</div>
+            <div class="control-stack">
+            <div class="controls">
+                <label for="input-rounds">Rounds
+                    <input id="input-rounds" type="number" min="1" max="20" value="4" inputmode="numeric">
+                </label>
+                <label for="input-seed">Seed
+                    <input id="input-seed" type="number" min="0" max="10000" value="7" inputmode="numeric">
+                </label>
+                <label for="input-mode">Policy
+                    <select id="input-mode">
+                        <option value="ratc">RATC · TOPSIS</option>
+                        <option value="plain">Plain · FedAvg</option>
+                        <option value="static">Static tiers</option>
+                    <option value="random">Random tiers</option>
+                    <option value="reactive">Reactive solver</option>
+                    <option value="predictive">Predictive solver</option>
+                    <option value="bandit">Contextual bandit</option>
+                </select>
+                </label>
+                <button id="btn-start" class="primary" type="button">
+                    <span class="button-label">Start live run</span>
+                </button>
+                <div class="export-group" aria-label="Export measured results">
+                    <a class="ghost" href="/api/v1/export/json">JSON</a>
+                    <a class="ghost" href="/api/v1/export/csv">CSV</a>
+                </div>
             </div>
-            <div class="kpi-card">
-                <h3>Privacy Budget (ε)</h3>
-                <div class="kpi-value highlight-warning" id="kpi-epsilon">0.00</div>
+            <div class="controls controls-extra">
+                <label for="input-objective">Objective
+                    <select id="input-objective">
+                        <option value="topsis">TOPSIS score</option>
+                        <option value="privacy">Strongest privacy</option>
+                        <option value="latency">Lowest latency</option>
+                        <option value="upload">Smallest upload</option>
+                    </select>
+                </label>
+                <label for="input-scenario">Scenario
+                    <select id="input-scenario">
+                        <option value="none">None</option>
+                        <option value="poison">Scaled poisoning</option>
+                        <option value="freerider">Free-rider</option>
+                        <option value="telemetry">False telemetry</option>
+                        <option value="dropout">SecAgg dropout</option>
+                    </select>
+                </label>
+                <label for="input-budget">Epsilon cap
+                    <input id="input-budget" type="number" min="0" max="100" step="0.5" placeholder="Uncapped">
+                </label>
+                <label class="check" for="input-forbid">
+                    <input id="input-forbid" type="checkbox">
+                    Forbid CKKS on IoT
+                </label>
+                <label class="check" for="input-recovery">
+                    <input id="input-recovery" type="checkbox">
+                    Recover one dropout
+                </label>
             </div>
-            <div class="kpi-card">
-                <h3>Round Latency</h3>
-                <div class="kpi-value highlight-danger" id="kpi-latency">0.0s</div>
             </div>
         </section>
 
-        <section class="charts-section">
-            <div class="chart-card">
-                <h3>Model Convergence (Accuracy & Loss)</h3>
-                <div class="chart-wrapper">
-                    <canvas id="convergenceChart"></canvas>
-                </div>
-            </div>
-            <div class="chart-card">
-                <h3>Privacy Tier Distribution</h3>
-                <div class="chart-wrapper">
-                    <canvas id="tierChart"></canvas>
-                </div>
-            </div>
+        <section class="lab" id="comparison-strip" aria-label="Saved mode comparison" hidden>
+            <h2>Saved comparison</h2>
+            <div id="comparison-values"></div>
         </section>
 
-        <section class="bottom-grid">
-            <div class="card event-log-card">
-                <h3>Federation Event Log</h3>
-                <div class="event-log" id="event-log">
-                    <div class="log-entry system">System initialized. Waiting for rounds...</div>
-                </div>
-            </div>
-            <div class="card client-telemetry-card">
-                <h3>Client Resource Telemetry</h3>
-                <div class="telemetry-grid" id="telemetry-grid">
-                    <!-- Dynamic client bars added here -->
-                </div>
-            </div>
+        <section class="kpis" aria-label="Latest round metrics">
+            <article><span>Held-out accuracy</span><strong id="kpi-accuracy">—</strong></article>
+            <article><span>Training loss</span><strong id="kpi-loss">—</strong></article>
+            <article><span>Clients</span><strong id="kpi-clients">0</strong></article>
+            <article><span>Max DP epsilon</span><strong id="kpi-epsilon">—</strong></article>
+            <article><span>Slowest fit</span><strong id="kpi-latency">—</strong></article>
+            <article><span>Upload bytes</span><strong id="kpi-bytes">—</strong></article>
         </section>
+
+        <section class="stage">
+            <article class="panel wide">
+                <header>
+                    <div>
+                        <h2>Model convergence</h2>
+                        <p>Weighted held-out evaluation after every Flower round.</p>
+                    </div>
+                    <span class="source-badge">Live measurements</span>
+                </header>
+                <div class="chart-box"><canvas id="convergenceChart"></canvas></div>
+            </article>
+            <article class="panel routing-panel">
+                <header>
+                    <div>
+                        <h2>Privacy routing</h2>
+                        <p>Latest TOPSIS assignment by mechanism.</p>
+                    </div>
+                </header>
+                <div class="chart-box short"><canvas id="tierChart"></canvas></div>
+                <div class="tier-key" aria-label="Privacy tier descriptions">
+                    <div><i class="tier-dot fhe"></i><span><strong>CKKS</strong> encrypted pool</span></div>
+                    <div><i class="tier-dot secagg"></i><span><strong>SecAgg</strong> masked pool</span></div>
+                    <div><i class="tier-dot dp"></i><span><strong>Local DP</strong> constrained clients</span></div>
+                </div>
+            </article>
+        </section>
+
+        <section class="stage lower">
+            <article class="panel fleet-panel">
+                <header>
+                    <div>
+                        <h2>Client fleet</h2>
+                        <p>Seeded resource profiles with measured fit time and upload size.</p>
+                    </div>
+                    <span class="client-count" id="fleet-count">0 clients</span>
+                </header>
+                <div id="telemetry-grid" class="fleet"></div>
+            </article>
+            <article class="panel log-panel">
+                <header>
+                    <div>
+                        <h2>Federation log</h2>
+                        <p id="log-caption">Events emitted by the live Flower server.</p>
+                    </div>
+                </header>
+                <div id="event-log" class="log" aria-live="polite"></div>
+            </article>
+        </section>
+
+        <footer class="footnote">
+            <strong>Demonstrator boundary</strong>
+            <p>CKKS and local DP operate on real model updates. Pairwise masks cancel for a full pool. Optional recovery rebuilds one benign dropout from shares sent to this colocated server; it is not production key agreement or a malicious-client proof. Trust and attack labels are heuristics. Device classes are seeded profiles because the clients share one host; fit time and payload size are measured. Epsilon is client-level accounting, not a central federation guarantee.</p>
+        </footer>
     </div>
-
-    <script src="js/api.js"></script>
     <script src="js/charts.js"></script>
     <script src="js/telemetry.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

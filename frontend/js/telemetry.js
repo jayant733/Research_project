@@ -1,45 +1,86 @@
-function createBar(label, value) {
-    const percent = Math.min(100, Math.max(0, value * 100));
+const PROFILE_LABELS = {
+    workstation: "Workstation",
+    mobile: "Mobile",
+    iot_device: "IoT",
+    Desktop: "Workstation",
+    Mobile: "Mobile",
+    IoT: "IoT"
+};
+
+const TIER_LABELS = {
+    TIER_1_FHE: "CKKS",
+    TIER_2_SECAGG: "SecAgg",
+    TIER_3_DP_PLAIN: "Local DP",
+    PLAIN: "Plain",
+    EXCLUDED: "Excluded",
+    DROPPED: "Dropped"
+};
+
+function updateTelemetryGrid(clients) {
+    const grid = document.getElementById("telemetry-grid");
+    const count = document.getElementById("fleet-count");
+    const entries = Object.entries(clients || {});
+    if (count) {
+        count.textContent = `${entries.length} ${entries.length === 1 ? "client" : "clients"}`;
+    }
+    if (!entries.length) {
+        grid.innerHTML = '<p class="empty">Start a run to inspect client assignments and telemetry.</p>';
+        return;
+    }
+    grid.innerHTML = entries.map(([clientId, client]) => renderClient(clientId, client)).join("");
+}
+
+function renderClient(clientId, client) {
+    const telemetry = client.telemetry || {};
+    const profile = PROFILE_LABELS[client.profile] || client.profile || "Client";
+    const tier = TIER_LABELS[client.tier] || "Pending";
+    const moved = client.previous_tier && client.previous_tier !== client.tier;
+    const tierText = moved
+        ? `${TIER_LABELS[client.previous_tier] || client.previous_tier} → ${tier}`
+        : tier;
     return `
-        <div class="metric-bar-container">
-            <div style="display:flex; justify-content:space-between">
-                <span>${label}</span>
-                <span>${percent.toFixed(0)}%</span>
+        <div class="client-row tier-${client.tier || "none"}">
+            <div class="client-header">
+                <span>${clientId} · ${profile}</span>
+                <span class="${moved ? "moved" : ""}">${tierText}</span>
             </div>
-            <div class="bar-bg">
-                <div class="bar-fill" style="width: ${percent}%"></div>
+            <div class="bars">
+                ${bar("CPU", telemetry.cpu_usage)}
+                ${bar("RAM", telemetry.memory_usage)}
+                ${bar("Battery", telemetry.battery_level)}
+            </div>
+            <div class="client-foot">
+                <span>score ${Number(client.score || 0).toFixed(2)}</span>
+                <span>trust ${Number(client.trust ?? 1).toFixed(2)}</span>
+                <span>${epsilonText(client)}</span>
+                <span>${formatBytes(client.payload_bytes)} · ${Number(client.fit_seconds || 0).toFixed(2)}s</span>
+                ${client.attack ? `<span class="moved">${client.attack}</span>` : ""}
+                ${client.reason ? `<span class="reason">${client.reason}</span>` : ""}
             </div>
         </div>
     `;
 }
 
-function updateTelemetryGrid(clients) {
-    const grid = document.getElementById('telemetry-grid');
-    grid.innerHTML = '';
-    
-    Object.entries(clients).forEach(([cid, data]) => {
-        const t = data.telemetry || { cpu_usage: 0, memory_usage: 0, battery_level: 1 };
-        
-        const row = document.createElement('div');
-        row.className = `client-row tier-${data.tier || 'none'}`;
-        
-        let tierLabel = 'Pending';
-        if (data.tier === 'TIER_1_FHE') tierLabel = 'FHE';
-        if (data.tier === 'TIER_2_SECAGG') tierLabel = 'SecAgg';
-        if (data.tier === 'TIER_3_DP_PLAIN') tierLabel = 'DP';
-        
-        row.innerHTML = `
-            <div class="client-header">
-                <span>${cid} (${data.profile})</span>
-                <span>${tierLabel}</span>
-            </div>
-            <div class="client-metrics">
-                ${createBar('CPU', t.cpu_usage)}
-                ${createBar('RAM', t.memory_usage)}
-                ${createBar('BAT', t.battery_level)}
-            </div>
-        `;
-        
-        grid.appendChild(row);
-    });
+function bar(label, value) {
+    const percent = Math.max(0, Math.min(100, Number(value || 0) * 100));
+    return `
+        <div>
+            <div class="metric-label"><span>${label}</span><span>${percent.toFixed(0)}%</span></div>
+            <div class="track"><div class="fill" style="width:${percent}%"></div></div>
+        </div>
+    `;
+}
+
+function epsilonText(client) {
+    const spent = Number(client.epsilon || 0).toFixed(2);
+    if (client.epsilon_remaining === null || client.epsilon_remaining === undefined) {
+        return `ε ${spent}`;
+    }
+    return `ε ${spent} / left ${Number(client.epsilon_remaining).toFixed(2)}`;
+}
+
+function formatBytes(value) {
+    const bytes = Number(value || 0);
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
 }

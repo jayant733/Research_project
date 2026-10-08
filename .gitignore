@@ -46,6 +46,7 @@ env/
 # Logging and Telemetry cache outputs
 *.log
 experiments/logs/
+runtime/
 data/
 
 # OS files

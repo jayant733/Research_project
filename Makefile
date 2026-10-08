@@ -1,7 +1,7 @@
 # Makefile for Adaptive Privacy Orchestrator
 # Technical Explanation: automates standard developer tooling commands.
 
-.PHONY: setup install format lint typecheck test clean build-env
+.PHONY: setup install format lint typecheck test clean build-env demo
 
 setup:
 	python -m venv .venv
@@ -28,12 +28,15 @@ check-all: format lint typecheck test
 # Docker Standard Commands
 # Technical Explanation: Orchestrates building, running profiles, and cleaning container workflows.
 
+demo:
+	python -m backend.demo
+
 docker-build:
 	docker build -f docker/Dockerfile.base -t adaptive-privacy-base:latest .
 	docker compose build
 
 docker-dev-up:
-	docker compose --profile development up -d
+	docker compose --profile demo up --build
 
 docker-benchmark-up:
 	docker compose --profile benchmark up -d

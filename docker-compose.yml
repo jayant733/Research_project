@@ -3,6 +3,24 @@
 # Manages networking, named persistent volumes, startup dependencies, and Docker Profiles.
 
 services:
+  demo:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.demo
+    container_name: ratc-demo
+    ports:
+      - "${DEMO_PORT:-8080}:8080"
+    networks:
+      - ratc-network
+    restart: unless-stopped
+    profiles: ["demo", "development", "benchmark", "production"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+
   server:
     build:
       context: .
@@ -17,7 +35,7 @@ services:
     networks:
       - ratc-network
     restart: unless-stopped
-    profiles: ["development", "benchmark", "production"]
+    profiles: ["legacy"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -45,7 +63,7 @@ services:
     networks:
       - ratc-network
     restart: unless-stopped
-    profiles: ["development", "benchmark", "production"]
+    profiles: ["legacy"]
     depends_on:
       server:
         condition: service_healthy
@@ -75,7 +93,7 @@ services:
     networks:
       - ratc-network
     restart: unless-stopped
-    profiles: ["development", "benchmark", "production"]
+    profiles: ["legacy"]
     depends_on:
       server:
         condition: service_healthy
@@ -105,7 +123,7 @@ services:
     networks:
       - ratc-network
     restart: unless-stopped
-    profiles: ["development", "benchmark", "production"]
+    profiles: ["legacy"]
     depends_on:
       client:
         condition: service_healthy
@@ -133,9 +151,7 @@ services:
     restart: unless-stopped
     profiles: ["benchmark", "production"]
     depends_on:
-      server:
-        condition: service_healthy
-      client:
+      demo:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]

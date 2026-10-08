@@ -56,3 +56,27 @@ def test_fedavg_aggregator() -> None:
     np.testing.assert_array_almost_equal(
         aggregated[0], np.array([3.0, 4.0, 5.0], dtype=np.float32)
     )
+
+
+def test_fedavg_aggregates_every_tensor() -> None:
+    """Verifies multi-layer updates are all included in the average."""
+    aggregator = FedAvgAggregator()
+    updates = [
+        (
+            [
+                np.array([[1.0, 2.0]], dtype=np.float32),
+                np.array([4.0], dtype=np.float32),
+            ],
+            1,
+        ),
+        (
+            [
+                np.array([[3.0, 6.0]], dtype=np.float32),
+                np.array([8.0], dtype=np.float32),
+            ],
+            1,
+        ),
+    ]
+    aggregated = aggregator.aggregate(updates)
+    np.testing.assert_allclose(aggregated[0], np.array([[2.0, 4.0]], dtype=np.float32))
+    np.testing.assert_allclose(aggregated[1], np.array([6.0], dtype=np.float32))

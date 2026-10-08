@@ -1,5 +1,7 @@
 # Semester Defense Presentation Plan
 
+Status: slides must distinguish the working demonstrator from unpublished targets. Do not present the 30–50% performance figures below as measured results unless `experiments/logs/summary.json` from a fresh run supports them. The defensible claim is an open Flower loop that assigns CKKS, demonstrator secure aggregation, or local DP from TOPSIS telemetry and shows the measured tradeoff. Closest prior systems include Fed-RAC, TV-FedAvg, HERL, OFL, M2FDP, and FedPHE.
+
 This document defines the structure, slide-by-slide content, visual mockups, and speaker notes for a 20-slide presentation suitable for a semester defense.
 
 ---

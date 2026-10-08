@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional, Set
 
 
 class PrivacyTier(Enum):
@@ -15,3 +16,7 @@ class ConstraintVector:
     data_sensitivity_score: float  # [0.0, 1.0] where 1.0 is highly sensitive
     requires_fhe: bool = False
     min_dp_epsilon: float = 1.0
+    allowed_tiers: Optional[Set[str]] = None
+    epsilon_cap: Optional[float] = None
+    latency_cap: Optional[float] = None
+    forbid_fhe: bool = False

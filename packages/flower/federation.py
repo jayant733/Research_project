@@ -20,6 +20,7 @@ class FlowerFederation(IFederation):
     ) -> None:
         """Adapts the generic strategy and starts the Flower server."""
         events.on_server_start.fire(server_address=server_address)
+        _allow_embedded_server()
 
         # Instantiate adapter strategy, defaulting minimum available clients to 1
         # In real runs, these bounds are controlled by the configuration loaders.
@@ -47,5 +48,13 @@ class FlowerFederation(IFederation):
         fl.client.start_numpy_client(
             server_address=server_address, client=flower_client
         )
+
+
+def _allow_embedded_server() -> None:
+    """Permit the legacy Flower server to run beside a dashboard thread."""
+    import flwr.compat.server.app as flower_server_app
+
+    flower_server_app.register_signal_handlers = lambda *_args, **_kwargs: None
+
 
 FederatedOrchestrator = FlowerFederation

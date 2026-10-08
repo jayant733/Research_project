@@ -39,3 +39,6 @@ jobs:
 
       - name: Run Mypy static typecheck
         run: mypy .
+
+      - name: Run tests
+        run: pytest tests/unit tests/integration -q

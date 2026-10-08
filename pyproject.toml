@@ -22,10 +22,17 @@ dependencies = [
     "psutil>=5.9.0",
     "pyyaml>=6.0",
     "scikit-learn>=1.3.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.0.0",
 ]
 
-[tool.setuptools]
-packages = ["packages", "apps"]
+[project.scripts]
+ratc-demo = "backend.demo:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["packages*", "apps*", "backend*"]
 
 [project.optional-dependencies]
 dev = [
@@ -63,9 +70,13 @@ python_version = "3.10"
 strict = true
 warn_unreachable = true
 pretty = true
-exclude = ["scripts", "paper"]
+exclude = ["scripts", "paper", "backend"]
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = "packages.training.providers.pytorch.*"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["tenseal", "tenseal.*", "opacus", "opacus.*", "flwr", "flwr.*", "fastapi", "fastapi.*", "uvicorn", "uvicorn.*"]
+ignore_missing_imports = true

@@ -1,129 +1,135 @@
-from typing import Any, List
+"""CKKS context ceremony, encrypted weighted aggregation, and aggregate decryption."""
+
+from typing import Optional
 
 import numpy as np
 import tenseal as ts
 
-from packages.privacy.exceptions import DecryptionFailure, ScaleOutOfRangeError
+from packages.privacy.exceptions import (
+    CryptographicMismatchError,
+    DecryptionFailure,
+    ScaleOutOfRangeError,
+)
 
 
-class FHEEngine:
-    """Fully Homomorphic Encryption engine using TenSEAL (CKKS)."""
+def _build_private_context(poly_modulus_degree: int) -> ts.Context:
+    if poly_modulus_degree >= 8192:
+        coeff_mod_bit_sizes = [60, 40, 60]
+        scale = 2**40
+    else:
+        coeff_mod_bit_sizes = [40, 20, 40]
+        scale = 2**20
+    context = ts.context(
+        ts.SCHEME_TYPE.CKKS,
+        poly_modulus_degree=poly_modulus_degree,
+        coeff_mod_bit_sizes=coeff_mod_bit_sizes,
+    )
+    context.global_scale = scale
+    context.generate_relin_keys()
+    return context
 
-    def __init__(self, poly_modulus_degree: int = 8192):
-        self.poly_modulus_degree = poly_modulus_degree
-        self.context = self._create_context()
-        self.secret_key = self.context.secret_key()
-        # Drop the secret key from the context to make it safe for public operations
-        self.context.make_context_public()
 
-    def _create_context(self) -> ts.Context:
-        """Creates a TenSEAL context for CKKS."""
-        # Setup TenSEAL context
-        context = ts.context(
-            ts.SCHEME_TYPE.CKKS,
-            poly_modulus_degree=self.poly_modulus_degree,
-            coeff_mod_bit_sizes=[60, 40, 40, 60]
-        )
-        context.global_scale = 2**40
-        context.generate_galois_keys()
-        return context
+class FHEAuthority:
+    """Holds the CKKS secret key and decrypts only aggregated ciphertexts."""
 
-    def get_public_context(self) -> bytes:
-        """Returns the serialized public context."""
-        return self.context.serialize()
+    def __init__(self, private_context: ts.Context) -> None:
+        self._context = private_context
 
-    def encrypt_weights(self, weights: np.ndarray) -> bytes:
-        """Encrypts a flat numpy array of weights."""
-        if not isinstance(weights, np.ndarray):
-            weights = np.array(weights)
-            
-        # Flatten the weights
-        flat_weights = weights.flatten().tolist()
-        
+    def decrypt(self, ciphertext: bytes, length: int) -> np.ndarray:
         try:
-            encrypted_vector = ts.ckks_vector(self.context, flat_weights)
-            return encrypted_vector.serialize()
-        except Exception as e:
-            raise ScaleOutOfRangeError(f"Failed to encrypt weights: {e}")
+            encrypted = ts.ckks_vector_from(self._context, ciphertext)
+            values = np.asarray(encrypted.decrypt(), dtype=np.float64)
+        except Exception as exc:
+            raise DecryptionFailure(f"Failed to decrypt aggregate: {exc}") from exc
+        if values.size < length:
+            raise DecryptionFailure("Decrypted vector is shorter than the model.")
+        return values[:length]
 
-    def decrypt_weights(self, ciphertext_bytes: bytes, original_shape: tuple) -> np.ndarray:
-        """Decrypts a serialized TenSEAL ciphertext back into a numpy array."""
-        try:
-            # Recreate a context with the secret key for decryption
-            decryption_context = self._create_context()
-            decryption_context.secret_key() # We need the SK to decrypt
-            # But wait, TenSEAL requires the exact same context/keys.
-            # For this simplified engine, we will temporarily restore the SK to our context.
-            
-            # Note: In a real distributed setup, the server never has the SK. 
-            # Clients encrypt, server aggregates blindly, clients decrypt.
-            
-            encrypted_vector = ts.lazy_ckks_vector_from(ciphertext_bytes)
-            encrypted_vector.link_context(self.context)
-            
-            # Since we dropped the SK, we can't actually decrypt here unless we kept it.
-            # For demonstration, we'll assume we kept it in self.secret_key
-            # and we temporarily bind it.
-            # In TenSEAL, you can't easily re-attach a dropped secret key to a public context.
-            # So for this engine, we'll hold onto a private context.
-            
-            pass # See below
-            
-        except Exception as e:
-            raise DecryptionFailure(f"Failed to decrypt: {e}")
-            
-    # Redesigning slightly for the RATC architecture:
-    # We will keep a private context for the engine since it runs on the client.
-    
-class ClientFHEEngine:
-    """Client-side FHE engine that holds the secret key."""
-    def __init__(self, poly_modulus_degree: int = 8192):
-        self.context = ts.context(
-            ts.SCHEME_TYPE.CKKS,
-            poly_modulus_degree=poly_modulus_degree,
-            coeff_mod_bit_sizes=[60, 40, 40, 60]
-        )
-        self.context.global_scale = 2**40
-        self.context.generate_galois_keys()
-        
-    def encrypt_weights(self, weights: np.ndarray) -> bytes:
-        flat_weights = weights.flatten().tolist()
-        try:
-            encrypted_vector = ts.ckks_vector(self.context, flat_weights)
-            return encrypted_vector.serialize()
-        except Exception as e:
-            raise ScaleOutOfRangeError(f"Failed to encrypt weights: {e}")
-            
-    def decrypt_weights(self, ciphertext_bytes: bytes, original_shape: tuple) -> np.ndarray:
-        try:
-            encrypted_vector = ts.ckks_vector_from(self.context, ciphertext_bytes)
-            decrypted_list = encrypted_vector.decrypt()
-            return np.array(decrypted_list).reshape(original_shape)
-        except Exception as e:
-            raise DecryptionFailure(f"Failed to decrypt weights: {e}")
 
 class ServerFHEEngine:
-    """Server-side FHE engine that aggregates encrypted vectors blindly."""
-    def __init__(self, serialized_context: bytes):
-        self.context = ts.context_from(serialized_context)
-        
-    def aggregate(self, ciphertexts: List[bytes]) -> bytes:
+    """Adds public ciphertexts. This object cannot decrypt individual updates."""
+
+    def __init__(self, public_context: bytes) -> None:
+        self.context = ts.context_from(public_context)
+
+    def aggregate(self, ciphertexts: list[bytes], total_samples: float) -> bytes:
         if not ciphertexts:
             raise ValueError("No ciphertexts to aggregate.")
-            
+        if total_samples <= 0:
+            raise ValueError("Sample count must be positive.")
         try:
-            # Load first vector
-            aggregated_vector = ts.ckks_vector_from(self.context, ciphertexts[0])
-            
-            # Add remaining vectors
-            for ct in ciphertexts[1:]:
-                vector = ts.ckks_vector_from(self.context, ct)
-                aggregated_vector += vector
-                
-            # Average (multiply by 1/N)
-            # In CKKS, division by scalar is multiplication by 1/scalar
-            aggregated_vector *= (1.0 / len(ciphertexts))
-            
-            return aggregated_vector.serialize()
-        except Exception as e:
-            raise CryptographicMismatchError(f"Failed to aggregate ciphertexts: {e}")
+            aggregated = ts.ckks_vector_from(self.context, ciphertexts[0])
+            for ciphertext in ciphertexts[1:]:
+                aggregated += ts.ckks_vector_from(self.context, ciphertext)
+            aggregated *= 1.0 / float(total_samples)
+            return bytes(aggregated.serialize())
+        except Exception as exc:
+            raise CryptographicMismatchError(
+                f"Failed to aggregate ciphertexts: {exc}"
+            ) from exc
+
+
+class PublicFHEClient:
+    """Encrypts with the shared public context and never sees the secret key."""
+
+    def __init__(self, public_context: bytes) -> None:
+        self.context = ts.context_from(public_context)
+
+    def encrypt(self, values: np.ndarray) -> bytes:
+        try:
+            vector = np.asarray(values, dtype=np.float64).ravel().tolist()
+            encrypted = ts.ckks_vector(self.context, vector)
+            return bytes(encrypted.serialize())
+        except Exception as exc:
+            raise ScaleOutOfRangeError(f"Failed to encrypt weights: {exc}") from exc
+
+
+class FHESession:
+    """Creates a public context for clients and a separate decryption authority."""
+
+    def __init__(self, poly_modulus_degree: int = 8192) -> None:
+        private = _build_private_context(poly_modulus_degree)
+        self.public_bytes = bytes(
+            private.serialize(
+                save_public_key=True,
+                save_secret_key=False,
+                save_galois_keys=False,
+                save_relin_keys=True,
+            )
+        )
+        private_bytes = private.serialize(
+            save_public_key=True,
+            save_secret_key=True,
+            save_galois_keys=False,
+            save_relin_keys=True,
+        )
+        self.authority = FHEAuthority(ts.context_from(private_bytes))
+        self.server_engine = ServerFHEEngine(self.public_bytes)
+
+    def client(self) -> PublicFHEClient:
+        return PublicFHEClient(self.public_bytes)
+
+
+class ClientFHEEngine:
+    """Backward-compatible client helper that owns a standalone key pair."""
+
+    def __init__(self, poly_modulus_degree: int = 8192) -> None:
+        self._session: Optional[FHESession] = FHESession(poly_modulus_degree)
+
+    def encrypt_weights(self, weights: np.ndarray) -> bytes:
+        if self._session is None:
+            raise ScaleOutOfRangeError("FHE session is closed.")
+        return self._session.client().encrypt(np.asarray(weights))
+
+    def decrypt_weights(
+        self, ciphertext_bytes: bytes, original_shape: tuple
+    ) -> np.ndarray:
+        if self._session is None:
+            raise DecryptionFailure("FHE session is closed.")
+        length = int(np.prod(original_shape, dtype=int))
+        values = self._session.authority.decrypt(ciphertext_bytes, length)
+        return values.reshape(original_shape)
+
+
+class FHEEngine(ClientFHEEngine):
+    """Legacy alias kept for older imports."""

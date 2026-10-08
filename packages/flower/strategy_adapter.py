@@ -40,9 +40,14 @@ class FlowerStrategyAdapter(fl.server.strategy.FedAvg):
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Extracts NumPy arrays and delegates to the generic strategy."""
         generic_results = []
+        fit_metrics = []
         for _, fit_res in results:
             weights = parameters_to_ndarrays(fit_res.parameters)
             generic_results.append((weights, fit_res.num_examples))
+            fit_metrics.append(dict(fit_res.metrics))
+
+        if hasattr(self.generic_strategy, "consume_fit_metrics"):
+            self.generic_strategy.consume_fit_metrics(fit_metrics)
 
         aggregated_weights = self.generic_strategy.aggregate_fit(generic_results)
         if not aggregated_weights:
@@ -58,8 +63,19 @@ class FlowerStrategyAdapter(fl.server.strategy.FedAvg):
     ) -> Tuple[Optional[float], Dict[str, Scalar]]:
         """Maps evaluation results from clients and aggregates them."""
         generic_results = []
+        weighted_accuracy = 0.0
         for _, eval_res in results:
             generic_results.append((eval_res.loss, eval_res.num_examples))
+            weighted_accuracy += (
+                float(eval_res.metrics.get("accuracy", 0.0)) * eval_res.num_examples
+            )
 
         loss, accuracy = self.generic_strategy.aggregate_evaluate(generic_results)
+        total_examples = sum(count for _loss, count in generic_results)
+        if total_examples > 0:
+            accuracy = weighted_accuracy / total_examples
+        if hasattr(self.generic_strategy, "record_evaluation"):
+            self.generic_strategy.record_evaluation(
+                server_round, float(loss), float(accuracy)
+            )
         return loss, {"accuracy": accuracy}

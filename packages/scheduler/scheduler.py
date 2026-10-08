@@ -14,60 +14,83 @@ class ResourceAwareScheduler(IScheduler):
         # Load configuration
         config = config_loader.load_all_configs()
         sched_config = config.get("scheduler", {})
-        
+
         self.policy_type = sched_config.get("policy_type", "topsis")
-        
-        weights = sched_config.get("topsis", {
-            "w_cpu": 0.2, "w_memory": 0.2, "w_bandwidth": 0.2, 
-            "w_battery": 0.2, "w_sensitivity": 0.2
-        })
+
+        weights = sched_config.get(
+            "topsis",
+            {
+                "w_cpu": 0.2,
+                "w_memory": 0.2,
+                "w_bandwidth": 0.2,
+                "w_battery": 0.2,
+                "w_sensitivity": 0.2,
+            },
+        )
         self.topsis_engine = TOPSISEngine(weights)
-        
-        thresholds = sched_config.get("thresholds", {
-            "tier_1_min_score": 0.7,
-            "tier_2_min_score": 0.4
-        })
+
+        thresholds = sched_config.get(
+            "thresholds", {"tier_1_min_score": 0.7, "tier_2_min_score": 0.4}
+        )
         self.t1_threshold = float(thresholds["tier_1_min_score"])
         self.t2_threshold = float(thresholds["tier_2_min_score"])
 
     def evaluate(
         self,
         telemetry: Dict[str, TelemetryVector],
-        constraints: Dict[str, ConstraintVector]
+        constraints: Dict[str, ConstraintVector],
     ) -> Dict[str, PrivacyTier]:
         """
         Evaluates active clients and assigns them to a privacy tier.
-        
+
         Tier 1 (FHE): Needs high compute & memory, handles high sensitivity.
         Tier 2 (SecAgg): Needs moderate compute, handles medium sensitivity.
-        Tier 3 (DP): Low compute footprint, handles lower sensitivity or adds high noise.
+        Tier 3 (DP): Low compute footprint for lower sensitivity.
         """
-        assignments = {}
-        
-        # Prepare data for TOPSIS
+        return {
+            client_id: PrivacyTier(details["tier"])
+            for client_id, details in self.explain(telemetry, constraints).items()
+        }
+
+    def explain(
+        self,
+        telemetry: Dict[str, TelemetryVector],
+        constraints: Dict[str, ConstraintVector],
+    ) -> Dict[str, Dict[str, float | str | bool]]:
+        """Return the tier, TOPSIS score, and whether a hard override applied."""
+        assignments: Dict[str, Dict[str, float | str | bool]] = {}
         topsis_input = {}
-        for cid, t_vec in telemetry.items():
-            # If no constraints provided, assume median sensitivity
-            c_vec = constraints.get(cid, ConstraintVector(data_sensitivity_score=0.5))
-            
-            # Hard constraint override
-            if c_vec.requires_fhe:
-                assignments[cid] = PrivacyTier.TIER_1_FHE
+        for client_id, telemetry_vector in telemetry.items():
+            constraint = constraints.get(
+                client_id, ConstraintVector(data_sensitivity_score=0.5)
+            )
+            if constraint.requires_fhe:
+                assignments[client_id] = {
+                    "tier": PrivacyTier.TIER_1_FHE.value,
+                    "score": 1.0,
+                    "override": True,
+                }
                 continue
-                
-            topsis_input[cid] = (t_vec, c_vec.data_sensitivity_score)
-            
-        # Get scores
-        if topsis_input:
-            scores = self.topsis_engine.compute_scores(topsis_input)
-            
-            # Map scores to tiers based on thresholds
-            for cid, score in scores.items():
-                if score >= self.t1_threshold:
-                    assignments[cid] = PrivacyTier.TIER_1_FHE
-                elif score >= self.t2_threshold:
-                    assignments[cid] = PrivacyTier.TIER_2_SECAGG
-                else:
-                    assignments[cid] = PrivacyTier.TIER_3_DP_PLAIN
-                    
+            topsis_input[client_id] = (
+                telemetry_vector,
+                constraint.data_sensitivity_score,
+            )
+
+        if not topsis_input:
+            return assignments
+
+        scores = self.topsis_engine.compute_scores(topsis_input)
+        for client_id, score in scores.items():
+            assignments[client_id] = {
+                "tier": self._tier_for_score(score).value,
+                "score": float(score),
+                "override": False,
+            }
         return assignments
+
+    def _tier_for_score(self, score: float) -> PrivacyTier:
+        if score >= self.t1_threshold:
+            return PrivacyTier.TIER_1_FHE
+        if score >= self.t2_threshold:
+            return PrivacyTier.TIER_2_SECAGG
+        return PrivacyTier.TIER_3_DP_PLAIN

@@ -14,9 +14,10 @@ from packages.common.model_interface import IModel
 class GenericClient(IGenericClient):
     """Core client engine delegating weights modification to injected models."""
 
-    def __init__(self, model: IModel, data: Any = None) -> None:
+    def __init__(self, model: IModel, data: Any = None, test_data: Any = None) -> None:
         self.model = model
         self.data = data
+        self.test_data = data if test_data is None else test_data
         events.on_client_init.fire(model=model)
 
     def get_parameters(self, context: RoundContext) -> List[Any]:
@@ -34,16 +35,19 @@ class GenericClient(IGenericClient):
         self.model.set_weights(parameters)
 
         # 2. Trigger model local training loop
-        if self.data is not None:
-            self.model.train(data=self.data)
-        else:
-            self.model.train()
+        epochs = int(context.config.get("epochs", 1))
+        learning_rate = float(context.config.get("lr", 0.01))
+        self._train(epochs, learning_rate)
 
         updated_weights = self.model.get_weights()
         events.on_fit_end.fire(updated_weights=updated_weights, context=context)
 
         # Returns updated weights, mock sample count (10), and metrics
-        num_samples = len(self.data.dataset) if self.data and hasattr(self.data, "dataset") else 10
+        num_samples = (
+            len(self.data.dataset)
+            if self.data and hasattr(self.data, "dataset")
+            else 10
+        )
         return updated_weights, num_samples, {}
 
     def evaluate(
@@ -54,9 +58,9 @@ class GenericClient(IGenericClient):
 
         # Update weights and compute evaluation
         self.model.set_weights(parameters)
-        
-        if self.data is not None:
-            accuracy = self.model.evaluate(data=self.data)
+
+        if self.test_data is not None:
+            accuracy = self.model.evaluate(data=self.test_data)
         else:
             accuracy = self.model.evaluate()
 
@@ -64,5 +68,19 @@ class GenericClient(IGenericClient):
         loss = 1.0 - accuracy
 
         events.on_evaluate_end.fire(loss=loss, accuracy=accuracy, context=context)
-        num_samples = len(self.data.dataset) if self.data and hasattr(self.data, "dataset") else 10
+        num_samples = (
+            len(self.data.dataset)
+            if self.data and hasattr(self.data, "dataset")
+            else 10
+        )
         return loss, num_samples, {"accuracy": accuracy}
+
+    def _train(self, epochs: int, learning_rate: float) -> None:
+        """Train with optional epoch settings, falling back for simple models."""
+        if self.data is None:
+            self.model.train()
+            return
+        try:
+            self.model.train(data=self.data, epochs=epochs, lr=learning_rate)
+        except TypeError:
+            self.model.train(data=self.data)

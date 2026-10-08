@@ -22,11 +22,23 @@ class FedAvgAggregator(IAggregator):
         if total_samples == 0:
             return []
 
-        # Compute weighted average
-        # We assume each update has a single weights array (mock model weights list)
-        weighted_sum = np.zeros_like(updates[0][0][0])
-
-        for weights_list, sample_count in updates:
-            weighted_sum += weights_list[0] * (sample_count / total_samples)
-
-        return [weighted_sum]
+        reference = updates[0][0]
+        tensor_count = len(reference)
+        aggregated: List[Any] = []
+        for index in range(tensor_count):
+            reference_tensor = np.asarray(reference[index])
+            weighted_sum = np.zeros(reference_tensor.shape, dtype=np.float64)
+            for weights_list, sample_count in updates:
+                if len(weights_list) != tensor_count:
+                    raise ValueError("Clients returned different numbers of tensors.")
+                tensor = np.asarray(weights_list[index])
+                if tensor.shape != reference_tensor.shape:
+                    raise ValueError(
+                        f"Tensor {index} shape {tensor.shape} does not match "
+                        f"{reference_tensor.shape}."
+                    )
+                weighted_sum += tensor.astype(np.float64) * (
+                    sample_count / total_samples
+                )
+            aggregated.append(weighted_sum.astype(reference_tensor.dtype))
+        return aggregated
